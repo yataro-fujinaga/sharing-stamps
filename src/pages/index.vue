@@ -67,7 +67,7 @@ export default {
         description: null,
       },
       response: {
-        isSuccess: false,
+        type: null,
         title: '',
         messages: {
           id: [],
@@ -124,33 +124,43 @@ export default {
     }
   },
   mounted() {
-    const database = this.$fire.firestore
-    const stampsRef = database.ref('/stamps')
-
-    stampsRef.on('value', (snapshot) => {
-      const data = snapshot.val()
-      this.getStamps(data)
-    })
+    this.getStamps()
   },
   methods: {
+    getStamps: async () => {
+      const database = this.$fire.firestore
+      const querySnapshot = await database.getDocs(
+        database.collection(database, 'stamps')
+      )
+
+      querySnapshot.forEach((doc) => {
+        this.stamps.push(doc)
+      })
+
+      console.log(this.stamps)
+    },
+    addStamp: async (formObj) => {
+      const database = this.$fire.firestore
+      try {
+        await database.addDoc(
+          database.collection(database, 'stamps', {
+            id: formObj.id,
+            image_url: formObj.image_url,
+            description: formObj.description,
+          })
+        )
+      } catch (error) {
+        console.log(error)
+      }
+    },
     registerStamp() {
       if (!this.$refs.form.validate()) return
 
-      const database = this.$fire.database
-      const stampsCollection = database.collection('stamps')
-      stampsCollection.get().then()
+      this.addStamp(this.stamp_form)
 
-      stampsRef
-        .push({
-          id: this.form.id,
-          image_url: this.form.image_url,
-          description: this.form.description,
-        })
-        .then((response) => {
-          this.$$refs.form.reset()
-          this.response.isSuccess = true
-          this.response.title = 'スタンプを登録しました'
-        })
+      this.$refs.form.reset()
+
+      this.isSuccess()
     },
     isUniqueId(id) {
       for (const stamp of this.stamps) {
@@ -158,10 +168,9 @@ export default {
       }
       return true
     },
-    getStamps(objects) {
-      for (const key in objects) {
-        this.stamps.push(objects[key])
-      }
+    isSuccess() {
+      this.response.type = 'Success'
+      this.response.title = 'スタンプを登録しました。'
     },
   },
 }
