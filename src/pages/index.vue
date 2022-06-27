@@ -2,14 +2,16 @@
 v-container
   v-row
     v-col(cols='12', xs='12', sm='12', md='4')
-      v-form(ref='form', v-model='stamp_form.valid')
+      v-form(ref='form', v-model='stampForm.valid')
         .mb-2
           span.font-weight-bold.text-h5 スタンプ登録
-        .mb-2(v-if='response.isSuccess')
-          span.green--text {{ response.message }}
+        .mb-2(v-if='isSuccess')
+          span.green--text {{ response.title }}
+        .mb-2(v-else-if='isError')
+          span.red--text {{ response.title }}
         v-text-field(
           name='id',
-          v-model='stamp_form.id',
+          v-model='stampForm.id',
           outlined,
           dense,
           autofocus,
@@ -20,7 +22,7 @@ v-container
         )
         v-text-field(
           name='image_url',
-          v-model='stamp_form.image_url',
+          v-model='stampForm.image_url',
           outlined,
           dense,
           label='画像URL',
@@ -29,7 +31,7 @@ v-container
         )
         v-textarea(
           name='description',
-          v-model='stamp_form.description',
+          v-model='stampForm.description',
           outlined,
           dense,
           label='説明',
@@ -40,7 +42,7 @@ v-container
         v-btn.font-weight-bold.white--text(
           color='teal lighten-1',
           depressed,
-          :disabled='!stamp_form.valid',
+          :disabled='!stampForm.valid',
           @click='registerStamp'
         ) 登録
     v-col.d-md-flex(cols='12', xs='12', sm='12', md='8')
@@ -60,7 +62,7 @@ export default {
   name: 'IndexPage',
   data() {
     return {
-      stamp_form: {
+      stampForm: {
         valid: true,
         id: null,
         image_url: null,
@@ -127,40 +129,45 @@ export default {
     this.getStamps()
   },
   methods: {
-    getStamps: async () => {
+    getStamps() {
       const database = this.$fire.firestore
-      const querySnapshot = await database.getDocs(
-        database.collection(database, 'stamps')
-      )
 
-      querySnapshot.forEach((doc) => {
-        this.stamps.push(doc)
-      })
-
-      console.log(this.stamps)
-    },
-    addStamp: async (formObj) => {
-      const database = this.$fire.firestore
-      try {
-        await database.addDoc(
-          database.collection(database, 'stamps', {
-            id: formObj.id,
-            image_url: formObj.image_url,
-            description: formObj.description,
+      database
+        .collection('stamps')
+        .get()
+        .then((snapshot) => {
+          snapshot.forEach((doc) => {
+            this.stamps.push(doc.data())
           })
-        )
-      } catch (error) {
-        console.log(error)
+        })
+    },
+    addStamp() {
+      const database = this.$fire.firestore
+
+      const stampObj = {
+        id: this.stampForm.id,
+        image_url: this.stampForm.image_url,
+        description: this.stampForm.description,
       }
+
+      database
+        .collection('stamps')
+        .add(stampObj)
+        .then((docRef) => {
+          this.stamps.push(stampObj)
+        })
+        .catch((error) => {
+          this.Error(error)
+        })
     },
     registerStamp() {
       if (!this.$refs.form.validate()) return
 
-      this.addStamp(this.stamp_form)
+      this.addStamp(this.stampForm)
 
       this.$refs.form.reset()
 
-      this.isSuccess()
+      this.Successful(this.stampForm.id)
     },
     isUniqueId(id) {
       for (const stamp of this.stamps) {
@@ -168,9 +175,20 @@ export default {
       }
       return true
     },
-    isSuccess() {
+    Successful(id) {
       this.response.type = 'Success'
-      this.response.title = 'スタンプを登録しました。'
+      this.response.title = `スタンプ:${id}を登録しました。`
+    },
+    Error(title, messages = null) {
+      this.response.type = 'Error'
+      this.response.title = title
+      this.response.messages = messages
+    },
+    isSuccess() {
+      return this.response.type === 'Success'
+    },
+    isError() {
+      return this.response.type === 'Error'
     },
   },
 }
